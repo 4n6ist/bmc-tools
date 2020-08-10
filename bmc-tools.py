@@ -85,7 +85,7 @@ class BMCContainer():
 								self.b_log(sys.stderr, False, 3, "Unable to determine data pattern size; exiting before throwing any error!")
 								return False
 				else:
-					cf = t_len/(t_width*t_height)
+					cf = t_len//(t_width*t_height)
 					if cf == 4:
 						t_bmp = self.b_parse_rgb32b(self.bdat[len(t_hdr):len(t_hdr)+cf*t_width*t_height])
 						if t_height != 64:
@@ -128,7 +128,7 @@ class BMCContainer():
 			bl = ((pxl>>8)&0xF8)|((pxl>>13)&0x07)
 			gr = ((pxl>>3)&0xFC)|((pxl>>9)&0x03)
 			re = ((pxl<<3)&0xF8)|((pxl>>2)&0x07)
-			d_out+=chr(re)+chr(gr)+chr(bl)+b"\xFF"
+			d_out+=bytes([re])+bytes([gr])+bytes([bl])+b"\xFF"
 			data = data[2:]
 		return d_out
 	def b_parse_rgb32b(self, data):
@@ -160,9 +160,9 @@ class BMCContainer():
 	def b_export(self, dname):
 		self.fname = os.path.basename(self.fname)
 		for i in range(len(self.bmps)):
-			self.b_write(os.path.join(dname, "%s_%04d.bmp" % (self.fname, i)), self.b_export_bmp(64, int(len(self.bmps[i])/256), self.bmps[i]))
+			self.b_write(os.path.join(dname, "%s_%04d.bmp" % (self.fname, i)), self.b_export_bmp(64, len(self.bmps[i])//256, self.bmps[i]))
 			if self.oldsave and len(self.o_bmps[i]) > 0:
-				self.b_write(os.path.join(dname, "%s_old_%04d.bmp" % (self.fname, i)), self.b_export_bmp(64, int(len(self.o_bmps[i])/256), self.o_bmps[i]))
+				self.b_write(os.path.join(dname, "%s_old_%04d.bmp" % (self.fname, i)), self.b_export_bmp(64, len(self.o_bmps[i])//256, self.o_bmps[i]))
 		self.b_log(sys.stdout, False, 0, "Successfully exported %d files." % (len(self.bmps)))
 		if self.big:
 			pad = b"\xFF"
@@ -175,21 +175,26 @@ class BMCContainer():
 					self.bmps[i]+=pad*64
 			w = 64*int(len(self.bmps))
 			h = 64
-			if len(self.bmps)/self.STRIPE_WIDTH > 0:
+			if len(self.bmps)//self.STRIPE_WIDTH > 0:
 				m = len(self.bmps)%self.STRIPE_WIDTH
 				if m != 0:
 					for i in range(self.STRIPE_WIDTH-m):
 						self.bmps.append(pad*64*64)
 				w = self.STRIPE_WIDTH*64
-				h*=int(len(self.bmps))/self.STRIPE_WIDTH
+				h*=len(self.bmps)//self.STRIPE_WIDTH
 			c_bmp = "" if not self.pal else self.PALETTE
-			for i in range(h/64):
-				for j in range(64):
-					for k in range(w/64):
-						if self.btype == self.BIN_CONTAINER:
-							c_bmp+=self.bmps[self.STRIPE_WIDTH*(i+1)-1-k][64*len(pad)*j:64*len(pad)*(j+1)]
-						else:
-							c_bmp+=self.bmps[self.STRIPE_WIDTH*i+k][64*len(pad)*j:64*len(pad)*(j+1)]
+#			for i in range(h//64):
+#				for j in range(64):
+#					for k in range(w//64):
+#						if self.btype == self.BIN_CONTAINER:
+#							c_bmp+=self.bmps[self.STRIPE_WIDTH*(i+1)-1-k][64*len(pad)*j:64*len(pad)*(j+1)]
+#						else:
+#							c_bmp+=self.bmps[self.STRIPE_WIDTH*i+k][64*len(pad)*j:64*len(pad)*(j+1)]
+			if self.btype == self.BIN_CONTAINER:
+				collage_builder = (lambda x, a=self, PAD=len(pad), WIDTH=range(int(w / 64)): ''.join([''.join([a.bmps[a.STRIPE_WIDTH*(x+1)-1-k][64*PAD*j:64*PAD*(j+1)] for k in WIDTH]) for j in range(64)]))
+			else:
+				collage_builder = (lambda x, a=self, PAD=len(pad), WIDTH=range(int(w / 64)): ''.join([''.join([a.bmps[a.STRIPE_WIDTH*x+k][64*PAD*j:64*PAD*(j+1)] for k in WIDTH]) for j in range(64)]))
+			c_bmp += ''.join(map(collage_builder, range(int(h/64))))
 			self.b_write(os.path.join(dname, "%s_collage.bmp" % (self.fname)), self.b_export_bmp(w, h, c_bmp))
 			self.b_log(sys.stdout, False, 0, "Successfully exported collage file.")
 		return True
