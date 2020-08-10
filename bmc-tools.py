@@ -158,9 +158,6 @@ class BMCContainer():
 			data = data[3:]
 		return d_out
 	def b_export(self, dname):
-		if not os.path.isdir(dname):
-			self.b_log(sys.stderr, False, 3, "Destination must be an already existing folder.")
-			return False
 		self.fname = os.path.basename(self.fname)
 		for i in range(len(self.bmps)):
 			self.b_write(os.path.join(dname, "%s_%04d.bmp" % (self.fname, i)), self.b_export_bmp(64, int(len(self.bmps[i])/256), self.bmps[i]))
@@ -214,7 +211,7 @@ class BMCContainer():
 if __name__ == "__main__":
 	prs = argparse.ArgumentParser(description="RDP Bitmap Cache parser (v. 1.03, 30/04/2018)")
 	prs.add_argument("-s", "--src", help="Specify the BMCache file or directory to process.", required=True)
-	prs.add_argument("-d", "--dest", help="Specify the directory where to store the extracted bitmaps.", required=True)
+	prs.add_argument("-d", "--dest", help="Specify new directory name where to store the extracted bitmaps.", required=True)
 	prs.add_argument("-c", "--count", help="Only extract the given number of bitmaps.", type=int, default=-1)
 	prs.add_argument("-v", "--verbose", help="Determine the amount of information displayed.", action="store_true", default=False)
 	prs.add_argument("-o", "--old", help="Extract the old bitmap data found in the BMCache file.", action="store_true", default=False)
@@ -240,6 +237,12 @@ if __name__ == "__main__":
 	else:
 		sys.stdout.write("[+++] Processing a single file: '%s'.%s" % (args.src, os.linesep))
 		src_files = [args.src]
+	if os.path.isdir(args.dest):
+		if os.listdir(args.dest):
+			sys.stderr.write("Specify an empty folder or a new folder name.")
+			exit(-1)
+	else:
+		os.makedirs(args.dest)
 	for src in src_files:
 		if bmcc.b_import(src):
 			bmcc.b_process()
